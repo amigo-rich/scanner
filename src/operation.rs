@@ -1,8 +1,9 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Local};
 use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum Operation {
     Index(PathBuf),
-    Scan(NaiveDateTime, PathBuf),
+    List,
+    Scan(i64, PathBuf),
 }
