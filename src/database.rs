@@ -59,9 +59,20 @@ impl Database {
             INSERT INTO manifest (timestamp)
             VALUES (?1)
         "#;
+        let create_table_sql = format!(
+            r#"
+                CREATE TABLE '{}' (
+                    id INTEGER PRIMARY KEY,
+                    file_path TEXT NOT NULL,
+                    hash TEXT NOT NULL,
+                    manifest_id INTEGER NOT NULL,
+                    FOREIGN KEY (manifest_id) REFERENCES manifest (id)
+                )
+            "#,
+            timestamp
+        );
         let transaction = self.connection.transaction()?;
         transaction.execute(sql, params![timestamp])?;
-        let create_table_sql = format!("CREATE TABLE '{}' ( id INTEGER PRIMARY KEY, file_path TEXT NOT NULL, hash TEXT NOT NULL, manifest_id INTEGER NOT NULL, FOREIGN KEY (manifest_id) REFERENCES manifest (id))", timestamp);
         transaction.execute(&create_table_sql, params![])?;
         transaction.commit()?;
         Ok(())
@@ -81,7 +92,10 @@ impl Database {
         "#;
         let transaction = self.connection.transaction()?;
         let insert_sql = format!(
-            "INSERT INTO '{}' (file_path, hash, manifest_id) VALUES (?1, ?2, ?3)",
+            r#"
+                INSERT INTO '{}' (file_path, hash, manifest_id)
+                VALUES (?1, ?2, ?3)
+            "#,
             timestamp,
         );
         let manifest_id: i64 =
@@ -104,7 +118,15 @@ impl Database {
         old: i64,
     ) -> Result<Vec<(String, String, String, String)>, Error> {
         // XXX check old and new in manifest
-        let sql = format!("SELECT n.file_path, n.hash, o.file_path, o.hash FROM '{}' AS n LEFT JOIN '{}' AS o ON n.file_path = o.file_path", new, old);
+        let sql = format!(
+            r#"
+                SELECT n.file_path, n.hash, o.file_path, o.hash
+                FROM '{}' AS n
+                LEFT JOIN '{}' AS o
+                ON n.file_path = o.file_path
+            "#,
+            new, old
+        );
         let mut statement = self.connection.prepare(&sql)?;
         let iterator = statement.query_map(params![], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
