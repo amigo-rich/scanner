@@ -57,7 +57,15 @@ impl Scanner {
     }
     fn visit_dir(path: &Path, channel: &mpsc::Sender<PathBuf>) -> Result<(), Error> {
         if path.is_dir() {
-            for entry in fs::read_dir(path)? {
+            let dir_iter = match fs::read_dir(path) {
+                Ok(readdir) => readdir,
+                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                    eprintln!("Could not open: {:?}, but continuing..", path);
+                    return Ok(());
+                }
+                Err(e) => return Err(Error::IO(e)),
+            };
+            for entry in dir_iter {
                 let entry = entry?;
                 let path = entry.path();
                 if path.is_file() {
