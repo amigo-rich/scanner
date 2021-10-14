@@ -103,6 +103,24 @@ impl Database {
         transaction.commit()?;
         Ok(())
     }
+    pub fn delete_manifest_drop_table(&mut self, manifest_id: i64) -> Result<(), Error> {
+        let sql = r#"
+            DELETE FROM manifest
+            WHERE id = ?1
+        "#;
+        let manifest_record = self.select_manifest(manifest_id)?;
+        let drop_table_sql = format!(
+            r#"
+                DROP TABLE '{}'
+            "#,
+            manifest_record.record.0,
+        );
+        let transaction = self.connection.transaction()?;
+        transaction.execute(sql, params![manifest_record.id()])?;
+        transaction.execute(&drop_table_sql, params![])?;
+        transaction.commit()?;
+        Ok(())
+    }
     pub fn insert_file_paths_and_hashes<I>(
         &mut self,
         timestamp: i64,

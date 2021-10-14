@@ -32,6 +32,9 @@ pub fn get_database() -> Result<Database, Error> {
 pub fn run(operation: Operation) -> Result<(), Error> {
     let mut database = get_database()?;
     match operation {
+        Operation::DeleteManifest(manifest_id) => {
+            database.delete_manifest_drop_table(manifest_id)?;
+        }
         Operation::Index(path) => {
             let scanner = Scanner::new(path)?;
             let results = scanner.index()?;

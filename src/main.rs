@@ -18,6 +18,14 @@ fn main() {
         )
         .subcommand(App::new("list"))
         .subcommand(
+            App::new("manifest").arg(
+                Arg::new("delete")
+                    .long("delete")
+                    .takes_value(true)
+                    .short('d'),
+            ),
+        )
+        .subcommand(
             App::new("scan")
                 .arg(
                     Arg::new("manifest")
@@ -42,6 +50,14 @@ fn main() {
             Operation::Index(path.to_path_buf())
         }
         Some(("list", _)) => Operation::List,
+        Some(("manifest", manifest_matches)) => {
+            let manifest_id = manifest_matches
+                .value_of("delete")
+                .unwrap()
+                .parse()
+                .unwrap();
+            Operation::DeleteManifest(manifest_id)
+        }
         Some(("scan", scan_matches)) => {
             let manifest: i64 = scan_matches.value_of("manifest").unwrap().parse().unwrap();
             let path = Path::new(scan_matches.value_of("path").unwrap());
