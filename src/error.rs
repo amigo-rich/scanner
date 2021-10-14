@@ -6,9 +6,26 @@ pub enum SchemaFileProblem {
     InvalidPath,
 }
 
+impl std::fmt::Display for SchemaFileProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let error_description = match self {
+            SchemaFileProblem::NoComponents => {
+                "Splitting the schema filename resulted in no components"
+            }
+            SchemaFileProblem::WrongNumberOfComponents => {
+                "Splitting the schema filename result in an invalid number of components"
+            }
+            SchemaFileProblem::InvalidUTF8 => {
+                "While converting the Path to a String, invalid utf8 was encountered"
+            }
+            SchemaFileProblem::InvalidPath => "The provided Path was invalid",
+        };
+        write!(f, "{}", error_description)
+    }
+}
+
 #[derive(Debug)]
 pub enum Error {
-    InvalidMessage,
     InvalidSchemaDirectory(std::path::PathBuf),
     InvalidSchemaFile(SchemaFileProblem),
     IO(std::io::Error),
@@ -31,7 +48,26 @@ impl From<rusqlite::Error> for Error {
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        let error_description = match self {
+            Error::InvalidSchemaDirectory(path) => {
+                format!("The provided pathbuf: {:?} is invalid", path)
+            }
+            Error::InvalidSchemaFile(problem) => {
+                format!("A provided schema file is invalid: {}", problem)
+            }
+            Error::IO(e) => format!("An IO Error occurred: {}", e),
+            Error::NoFile(path) => format!("The file provided does not exist: {:?}", path),
+            Error::ParseInt(e) => format!(
+                "While parsing a String to an Integer, an error occured: {}",
+                e
+            ),
+            Error::NoSchemaFile(path) => format!("No schema files found at: {:?}", path),
+            Error::Rusqlite(e) => format!("A rusqlite error occurred: {}", e),
+            Error::SendPathBuf(e) => format!("A Send error occurred: {}", e),
+            Error::SendPathBufHash(e) => format!("A send derror occurred: {}", e),
+            Error::ThreadJoin => String::from("An error occurred from a thread"),
+        };
+        write!(f, "{}", error_description)
     }
 }
 
