@@ -12,6 +12,9 @@ impl Scanner {
     pub fn new(root: PathBuf) -> Result<Scanner, Error> {
         Ok(Scanner { root })
     }
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
     pub fn index(&self) -> Result<Vec<(PathBuf, String)>, Error> {
         let (file_send, file_receive) = mpsc::channel::<PathBuf>();
         let (main_send, main_receive) = mpsc::channel::<(PathBuf, String)>();

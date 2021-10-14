@@ -21,6 +21,7 @@ impl<T> Record<T> {
         self.record
     }
 }
+
 pub struct Database {
     connection: Connection,
 }
@@ -48,36 +49,37 @@ impl Database {
         let connection = Connection::open(p)?;
         Ok(Database { connection })
     }
-    pub fn select_manifests(&self) -> Result<Vec<Record<i64>>, Error> {
+    pub fn select_manifests(&self) -> Result<Vec<Record<(i64, String)>>, Error> {
         let sql = r#"
-            SELECT id, timestamp 
+            SELECT id, timestamp, directory_path
             FROM manifest
             ORDER BY id ASC
         "#;
         let mut statement = self.connection.prepare(sql)?;
-        let iterator =
-            statement.query_map(params![], |row| Ok(Record::new(row.get(0)?, row.get(1)?)))?;
+        let iterator = statement.query_map(params![], |row| {
+            Ok(Record::new(row.get(0)?, (row.get(1)?, row.get(2)?)))
+        })?;
         let mut results = Vec::new();
         for result in iterator {
             results.push(result?);
         }
         Ok(results)
     }
-    pub fn select_manifest(&self, id: i64) -> Result<Record<i64>, Error> {
+    pub fn select_manifest(&self, id: i64) -> Result<Record<(i64, String)>, Error> {
         let sql = r#"
-            SELECT id, timestamp 
+            SELECT id, timestamp, directory_path
             FROM manifest
             WHERE id = ?1
         "#;
         let record = self.connection.query_row(sql, params![id], |row| {
-            Ok(Record::new(row.get(0)?, row.get(1)?))
+            Ok(Record::new(row.get(0)?, (row.get(1)?, row.get(2)?)))
         })?;
         Ok(record)
     }
-    pub fn create_manifest_table(&mut self, timestamp: i64) -> Result<(), Error> {
+    pub fn create_manifest_table(&mut self, timestamp: i64, path: &Path) -> Result<(), Error> {
         let sql = r#"
-            INSERT INTO manifest (timestamp)
-            VALUES (?1)
+            INSERT INTO manifest (timestamp, directory_path)
+            VALUES (?1, ?2)
         "#;
         let create_table_sql = format!(
             r#"
@@ -92,7 +94,11 @@ impl Database {
             timestamp
         );
         let transaction = self.connection.transaction()?;
-        transaction.execute(sql, params![timestamp])?;
+        let path = match path.to_str() {
+            Some(path) => path,
+            None => "default",
+        };
+        transaction.execute(sql, params![timestamp, path])?;
         transaction.execute(&create_table_sql, params![])?;
         transaction.commit()?;
         Ok(())
@@ -144,6 +150,7 @@ impl Database {
                 FROM '{}' AS n
                 LEFT JOIN '{}' AS o
                 ON n.file_path = o.file_path
+                WHERE n.hash != o.hash
             "#,
             new, old
         );

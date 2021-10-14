@@ -36,14 +36,19 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             let scanner = Scanner::new(path)?;
             let results = scanner.index()?;
             let manifest = Local::now().timestamp_millis();
-            database.create_manifest_table(manifest)?;
+            database.create_manifest_table(manifest, scanner.root())?;
             database.insert_file_paths_and_hashes(manifest, results.into_iter())?;
         }
         Operation::List => {
             let manifests = database.select_manifests()?;
-            println!("id\ttimestamp");
+            println!("id\ttimestamp\tpath");
             for manifest in manifests {
-                println!("{}\t{}", manifest.id(), manifest.record());
+                println!(
+                    "{}\t{}\t{}",
+                    manifest.id(),
+                    manifest.record().0,
+                    manifest.record().1
+                );
             }
         }
         Operation::Scan(manifest, path) => {
@@ -51,13 +56,13 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             let scanner = Scanner::new(path)?;
             let results = scanner.index()?;
             let new_manifest = Local::now().timestamp_millis();
-            database.create_manifest_table(new_manifest)?;
+            database.create_manifest_table(new_manifest, scanner.root())?;
             database.insert_file_paths_and_hashes(new_manifest, results.into_iter())?;
             let differences =
-                database.select_manifest_differences(new_manifest, manifest.move_record())?;
+                database.select_manifest_differences(new_manifest, manifest.move_record().0)?;
             for difference in differences {
                 println!(
-                    "{}{}|{}{}",
+                    "{}|{}|{}|{}",
                     difference.0, difference.1, difference.2, difference.3
                 );
             }
