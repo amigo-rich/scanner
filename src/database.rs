@@ -2,6 +2,25 @@ use crate::error::Error;
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
 
+pub struct Record<T> {
+    id: i64,
+    record: T,
+}
+
+impl<T> Record<T> {
+    pub fn new(id: i64, record: T) -> Self {
+        Record::<T> { id, record }
+    }
+    pub fn id(&self) -> i64 {
+        self.id
+    }
+    pub fn record(&self) -> &T {
+        &self.record
+    }
+    pub fn move_record(self) -> T {
+        self.record
+    }
+}
 pub struct Database {
     connection: Connection,
 }
@@ -29,30 +48,31 @@ impl Database {
         let connection = Connection::open(p)?;
         Ok(Database { connection })
     }
-    pub fn select_manifests(&self) -> Result<Vec<(i64, i64)>, Error> {
+    pub fn select_manifests(&self) -> Result<Vec<Record<i64>>, Error> {
         let sql = r#"
             SELECT id, timestamp 
             FROM manifest
             ORDER BY id ASC
         "#;
         let mut statement = self.connection.prepare(sql)?;
-        let iterator = statement.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let mut results: Vec<(i64, i64)> = Vec::new();
+        let iterator =
+            statement.query_map(params![], |row| Ok(Record::new(row.get(0)?, row.get(1)?)))?;
+        let mut results = Vec::new();
         for result in iterator {
             results.push(result?);
         }
         Ok(results)
     }
-    pub fn select_manifest(&self, id: i64) -> Result<(i64, i64), Error> {
+    pub fn select_manifest(&self, id: i64) -> Result<Record<i64>, Error> {
         let sql = r#"
             SELECT id, timestamp 
             FROM manifest
             WHERE id = ?1
         "#;
-        let (id, timestamp) = self
-            .connection
-            .query_row(sql, params![id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        Ok((id, timestamp))
+        let record = self.connection.query_row(sql, params![id], |row| {
+            Ok(Record::new(row.get(0)?, row.get(1)?))
+        })?;
+        Ok(record)
     }
     pub fn create_manifest_table(&mut self, timestamp: i64) -> Result<(), Error> {
         let sql = r#"

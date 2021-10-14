@@ -43,7 +43,7 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             let manifests = database.select_manifests()?;
             println!("id\ttimestamp");
             for manifest in manifests {
-                println!("{}\t{}", manifest.0, manifest.1);
+                println!("{}\t{}", manifest.id(), manifest.record());
             }
         }
         Operation::Scan(manifest, path) => {
@@ -53,7 +53,8 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             let new_manifest = Local::now().timestamp_millis();
             database.create_manifest_table(new_manifest)?;
             database.insert_file_paths_and_hashes(new_manifest, results.into_iter())?;
-            let differences = database.select_manifest_differences(new_manifest, manifest.1)?;
+            let differences =
+                database.select_manifest_differences(new_manifest, manifest.move_record())?;
             for difference in differences {
                 println!(
                     "{}{}|{}{}",
