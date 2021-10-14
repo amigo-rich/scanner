@@ -1,7 +1,7 @@
 use chrono::Local;
 mod database;
 use database::Database;
-mod error;
+pub mod error;
 use error::Error;
 pub mod operation;
 use operation::Operation;

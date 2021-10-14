@@ -1,8 +1,8 @@
 use clap::{App, Arg};
-use scanner::{operation::Operation, run};
+use scanner::{error::Error, operation::Operation, run};
 use std::path::Path;
 
-fn main() {
+fn main() -> Result<(), Error> {
     let matches = App::new("Scanner")
         .version("0.1")
         .author("Richard Bradshaw")
@@ -66,5 +66,5 @@ fn main() {
         _ => unreachable!(),
     };
 
-    run(operation).unwrap();
+    run(operation)
 }
