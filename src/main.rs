@@ -10,10 +10,22 @@ struct Opts {
 
 #[derive(Clap)]
 enum SubCommand {
+    Compare(Compare),
     Create(Create),
     Delete(Delete),
     List,
     Scan(Scan),
+}
+
+/// Compare two manifests and note any differences
+#[derive(Clap)]
+struct Compare {
+    /// The first manifest id
+    #[clap(short, long)]
+    first: i64,
+    /// The second manifest id
+    #[clap(short, long)]
+    second: i64,
 }
 
 /// Scan a path, creating a new manifest
@@ -47,6 +59,9 @@ struct Scan {
 fn main() -> Result<(), Error> {
     let opts = Opts::parse();
     let operation = match opts.subcmd {
+        SubCommand::Compare(compare_matches) => {
+            Operation::Compare(compare_matches.first, compare_matches.second)
+        }
         SubCommand::Create(create_matches) => {
             Operation::Index(Path::new(&create_matches.path).to_path_buf())
         }

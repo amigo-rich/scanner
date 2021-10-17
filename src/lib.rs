@@ -33,6 +33,19 @@ pub fn get_database() -> Result<Database, Error> {
 pub fn run(operation: Operation) -> Result<(), Error> {
     let mut database = get_database()?;
     match operation {
+        Operation::Compare(first, second) => {
+            let new_record = database.select_manifest(first)?;
+            let old_record = database.select_manifest(second)?;
+            if let Some(differences) = database
+                .select_manifest_differences(new_record.record().0, old_record.record().0)?
+            {
+                for difference in differences {
+                    println!("{}", difference);
+                }
+            } else {
+                println!("Sets match.");
+            }
+        }
         Operation::DeleteManifest(manifest_id) => {
             database.delete_manifest_drop_table(manifest_id)?;
         }
