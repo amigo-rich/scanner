@@ -1,30 +1,22 @@
-use std::path::PathBuf;
-
 pub enum Type {
     // A file was added
-    Add(PathBuf, String),
+    Add(String, String),
     // A file was removed
-    Delete(PathBuf, String),
+    Delete(String, String),
     // A hash mismatch
-    Hash(PathBuf, String, PathBuf, String),
+    Hash(i64, String, String, i64, String, String),
 }
 
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Type::Add(path, hash) => (),
-            Type::Delete(path, hash) => (),
-            Type::Hash(path_a, hash_a, path_b, hash_b) => (),
+            Type::Add(path, hash) => write!(f, "Added: {:?}, {}", path, hash),
+            Type::Delete(path, hash) => write!(f, "Removed: {:?}, {}", path, hash),
+            Type::Hash(manifest_a, path_a, hash_a, manifest_b, path_b, hash_b) => write!(
+                f,
+                "Modified: Manifest {}: {:?} {}, Manifest {}: {:?}, {}",
+                manifest_a, path_a, hash_a, manifest_b, path_b, hash_b
+            ),
         }
-    }
-}
-
-pub struct Difference {
-    difference: Vec<Type>,
-}
-
-impl Difference {
-    pub fn add(&mut self, difference_type: Type) {
-        self.difference.push(difference_type);
     }
 }

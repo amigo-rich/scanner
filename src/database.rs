@@ -1,3 +1,4 @@
+use crate::difference;
 use crate::error::Error;
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
@@ -160,26 +161,101 @@ impl Database {
         &self,
         new: i64,
         old: i64,
-    ) -> Result<Vec<(String, String, String, String)>, Error> {
-        // XXX check old and new in manifest
+    ) -> Result<Option<Vec<difference::Type>>, Error> {
+        let mut differences = Vec::new();
+        self.select_hash_differences(new, old, &mut differences)?;
+        self.select_removed_paths(new, old, &mut differences)?;
+        self.select_added_paths(new, old, &mut differences)?;
+        if differences.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(differences))
+        }
+    }
+    fn select_hash_differences(
+        &self,
+        new: i64,
+        old: i64,
+        differences: &mut Vec<difference::Type>,
+    ) -> Result<(), Error> {
         let sql = format!(
             r#"
                 SELECT n.file_path, n.hash, o.file_path, o.hash
                 FROM '{}' AS n
-                LEFT JOIN '{}' AS o
+                INNER JOIN '{}' AS o
                 ON n.file_path = o.file_path
                 WHERE n.hash != o.hash
             "#,
             new, old
         );
         let mut statement = self.connection.prepare(&sql)?;
-        let iterator = statement.query_map(params![], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })?;
-        let mut results: Vec<(String, String, String, String)> = Vec::new();
-        for result in iterator {
-            results.push(result?);
+        let iterator = statement.query_map(
+            params![],
+            |row| -> Result<(String, String, String, String), rusqlite::Error> {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            },
+        )?;
+        for item in iterator {
+            let item = item?;
+            let difference = difference::Type::Hash(new, item.0, item.1, old, item.2, item.3);
+            differences.push(difference);
         }
-        Ok(results)
+        Ok(())
+    }
+    fn select_removed_paths(
+        &self,
+        new: i64,
+        old: i64,
+        differences: &mut Vec<difference::Type>,
+    ) -> Result<(), Error> {
+        let sql = format!(
+            r#"
+                SELECT n.file_path, n.hash
+                FROM '{}' AS n
+                LEFT JOIN '{}' AS o
+                ON n.file_path = o.file_path
+                WHERE o.file_path IS NULL
+            "#,
+            old, new,
+        );
+        let mut statement = self.connection.prepare(&sql)?;
+        let iterator = statement.query_map(
+            params![],
+            |row| -> Result<(String, String), rusqlite::Error> { Ok((row.get(0)?, row.get(1)?)) },
+        )?;
+        for item in iterator {
+            let item = item?;
+            let difference = difference::Type::Delete(item.0, item.1);
+            differences.push(difference);
+        }
+        Ok(())
+    }
+    fn select_added_paths(
+        &self,
+        new: i64,
+        old: i64,
+        differences: &mut Vec<difference::Type>,
+    ) -> Result<(), Error> {
+        let sql = format!(
+            r#"
+                SELECT n.file_path, n.hash, o.file_path, o.hash
+                FROM '{}' AS n
+                LEFT JOIN '{}' AS o
+                ON n.file_path = o.file_path
+                WHERE o.file_path IS NULL
+            "#,
+            new, old
+        );
+        let mut statement = self.connection.prepare(&sql)?;
+        let iterator = statement.query_map(
+            params![],
+            |row| -> Result<(String, String), rusqlite::Error> { Ok((row.get(0)?, row.get(1)?)) },
+        )?;
+        for item in iterator {
+            let item = item?;
+            let difference = difference::Type::Add(item.0, item.1);
+            differences.push(difference);
+        }
+        Ok(())
     }
 }
