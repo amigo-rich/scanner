@@ -47,8 +47,8 @@ pub fn run(operation: Operation) -> Result<(), Error> {
         Operation::Compare(first, second) => {
             let new_record = database.select_manifest(first)?;
             let old_record = database.select_manifest(second)?;
-            if let Some(differences) =
-                database.select_manifest_differences(new_record.id(), old_record.id())?
+            if let Some(differences) = database
+                .select_manifest_differences(new_record.timestamp(), old_record.timestamp())?
             {
                 display_result(differences.into_iter());
             } else {
@@ -68,14 +68,7 @@ pub fn run(operation: Operation) -> Result<(), Error> {
         Operation::List => {
             let manifests = database.select_manifests()?;
             println!("id\ttimestamp\tpath");
-            for manifest in manifests {
-                println!(
-                    "{}\t{}\t{}",
-                    manifest.id(),
-                    manifest.timestamp(),
-                    manifest.file_path().display(),
-                );
-            }
+            display_result(manifests.into_iter());
         }
         Operation::Scan(manifest_id) => {
             let manifest = database.select_manifest(manifest_id)?;

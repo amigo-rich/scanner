@@ -15,12 +15,12 @@ pub fn filename_u16(path: &Path) -> Result<u16, Error> {
                 ));
             }
             let parsed_value: u16 = components[0].parse()?;
-            return Ok(parsed_value);
+            Ok(parsed_value)
         } else {
-            return Err(Error::InvalidSchemaFile(SchemaFileProblem::InvalidUTF8));
+            Err(Error::InvalidSchemaFile(SchemaFileProblem::InvalidUTF8))
         }
     } else {
-        return Err(Error::InvalidSchemaFile(SchemaFileProblem::InvalidPath));
+        Err(Error::InvalidSchemaFile(SchemaFileProblem::InvalidPath))
     }
 }
 

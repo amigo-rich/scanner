@@ -25,3 +25,15 @@ impl Manifest {
         &self.file_path
     }
 }
+
+impl std::fmt::Display for Manifest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\t{}\t{}",
+            self.id,
+            self.timestamp,
+            self.file_path.display()
+        )
+    }
+}

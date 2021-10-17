@@ -84,10 +84,7 @@ impl Database {
             timestamp
         );
         let transaction = self.connection.transaction()?;
-        let path = match path.to_str() {
-            Some(path) => path,
-            None => "default",
-        };
+        let path = path.to_str().unwrap_or("default");
         transaction.execute(sql, params![timestamp, path])?;
         transaction.execute(&create_table_sql, params![])?;
         transaction.commit()?;
@@ -132,15 +129,11 @@ impl Database {
             "#,
             timestamp,
         );
-        let manifest_id: i64 =
-            transaction.query_row(sql, params![timestamp], |row| Ok(row.get(0)?))?;
+        let manifest_id: i64 = transaction.query_row(sql, params![timestamp], |row| row.get(0))?;
         for pair in iterator {
             // Hack for now...probably should be done when scanning or use a u8 vec for path?
             let value = pair.0.as_os_str();
-            let converted = match value.to_str() {
-                Some(value) => value,
-                None => "default",
-            };
+            let converted = value.to_str().unwrap_or("default");
             transaction.execute(&insert_sql, params![converted, pair.1, manifest_id])?;
         }
         transaction.commit()?;
