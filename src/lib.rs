@@ -15,6 +15,15 @@ use std::path::Path;
 const DB_PATH: &str = "testing.sqlite";
 const SCHEMA_DIR: &str = "schema";
 
+fn display_differences<I>(iterator: I)
+where
+    I: Iterator<Item = difference::Type>,
+{
+    for item in iterator {
+        println!("{}", item);
+    }
+}
+
 pub fn get_database() -> Result<Database, Error> {
     let path = Path::new(DB_PATH);
     let database = match path.is_file() {
@@ -39,9 +48,7 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             if let Some(differences) = database
                 .select_manifest_differences(new_record.record().0, old_record.record().0)?
             {
-                for difference in differences {
-                    println!("{}", difference);
-                }
+                display_differences(differences.into_iter());
             } else {
                 println!("Sets match.");
             }
@@ -78,9 +85,7 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             if let Some(differences) =
                 database.select_manifest_differences(new_manifest, manifest.move_record().0)?
             {
-                for difference in differences {
-                    println!("{}", difference);
-                }
+                display_differences(differences.into_iter());
             } else {
                 println!("Sets match.");
             }
