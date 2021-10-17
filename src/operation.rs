@@ -1,10 +1,11 @@
+use crate::manifest::Id;
 use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum Operation {
-    Compare(i64, i64),
-    DeleteManifest(i64),
+    Compare(Id, Id),
+    DeleteManifest(Id),
     Index(PathBuf),
     List,
-    Scan(i64),
+    Scan(Id),
 }

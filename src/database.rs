@@ -1,6 +1,6 @@
 use crate::difference;
 use crate::error::Error;
-use crate::manifest::Manifest;
+use crate::manifest::{Id, Manifest, Timestamp};
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
 
@@ -40,8 +40,8 @@ impl Database {
         let mut statement = self.connection.prepare(sql)?;
         let iterator = statement.query_map(params![], |row| {
             Ok(Manifest::from_database(
-                row.get(0)?,
-                row.get(1)?,
+                Id(row.get(0)?),
+                Timestamp(row.get(1)?),
                 row.get(2)?,
             ))
         })?;
@@ -51,22 +51,26 @@ impl Database {
         }
         Ok(results)
     }
-    pub fn select_manifest(&self, id: i64) -> Result<Manifest, Error> {
+    pub fn select_manifest(&self, id: &Id) -> Result<Manifest, Error> {
         let sql = r#"
             SELECT id, timestamp, directory_path
             FROM manifest
             WHERE id = ?1
         "#;
-        let record = self.connection.query_row(sql, params![id], |row| {
+        let record = self.connection.query_row(sql, params![id.0], |row| {
             Ok(Manifest::from_database(
-                row.get(0)?,
-                row.get(1)?,
+                Id(row.get(0)?),
+                Timestamp(row.get(1)?),
                 row.get(2)?,
             ))
         })?;
         Ok(record)
     }
-    pub fn create_manifest_table(&mut self, timestamp: i64, path: &Path) -> Result<(), Error> {
+    pub fn create_manifest_table(
+        &mut self,
+        timestamp: &Timestamp,
+        path: &Path,
+    ) -> Result<(), Error> {
         let sql = r#"
             INSERT INTO manifest (timestamp, directory_path)
             VALUES (?1, ?2)
@@ -81,16 +85,16 @@ impl Database {
                     FOREIGN KEY (manifest_id) REFERENCES manifest (id)
                 )
             "#,
-            timestamp
+            timestamp.0
         );
         let transaction = self.connection.transaction()?;
         let path = path.to_str().unwrap_or("default");
-        transaction.execute(sql, params![timestamp, path])?;
+        transaction.execute(sql, params![timestamp.0, path])?;
         transaction.execute(&create_table_sql, params![])?;
         transaction.commit()?;
         Ok(())
     }
-    pub fn delete_manifest_drop_table(&mut self, manifest_id: i64) -> Result<(), Error> {
+    pub fn delete_manifest_drop_table(&mut self, manifest_id: &Id) -> Result<(), Error> {
         let sql = r#"
             DELETE FROM manifest
             WHERE id = ?1
@@ -100,17 +104,17 @@ impl Database {
             r#"
                 DROP TABLE '{}'
             "#,
-            manifest_record.timestamp(),
+            manifest_record.timestamp().0,
         );
         let transaction = self.connection.transaction()?;
-        transaction.execute(sql, params![manifest_record.id()])?;
+        transaction.execute(sql, params![manifest_record.id().0])?;
         transaction.execute(&drop_table_sql, params![])?;
         transaction.commit()?;
         Ok(())
     }
     pub fn insert_file_paths_and_hashes<I>(
         &mut self,
-        timestamp: i64,
+        timestamp: &Timestamp,
         iterator: I,
     ) -> Result<(), Error>
     where
@@ -127,22 +131,23 @@ impl Database {
                 INSERT INTO '{}' (file_path, hash, manifest_id)
                 VALUES (?1, ?2, ?3)
             "#,
-            timestamp,
+            timestamp.0,
         );
-        let manifest_id: i64 = transaction.query_row(sql, params![timestamp], |row| row.get(0))?;
+        let manifest_id =
+            transaction.query_row(sql, params![timestamp.0], |row| Ok(Id(row.get(0)?)))?;
         for pair in iterator {
             // Hack for now...probably should be done when scanning or use a u8 vec for path?
             let value = pair.0.as_os_str();
             let converted = value.to_str().unwrap_or("default");
-            transaction.execute(&insert_sql, params![converted, pair.1, manifest_id])?;
+            transaction.execute(&insert_sql, params![converted, pair.1, manifest_id.0])?;
         }
         transaction.commit()?;
         Ok(())
     }
     pub fn select_manifest_differences(
         &self,
-        new: i64,
-        old: i64,
+        new: &Timestamp,
+        old: &Timestamp,
     ) -> Result<Option<Vec<difference::Type>>, Error> {
         let mut differences = Vec::new();
         self.select_hash_differences(new, old, &mut differences)?;
@@ -156,8 +161,8 @@ impl Database {
     }
     fn select_hash_differences(
         &self,
-        new: i64,
-        old: i64,
+        new: &Timestamp,
+        old: &Timestamp,
         differences: &mut Vec<difference::Type>,
     ) -> Result<(), Error> {
         let sql = format!(
@@ -168,7 +173,7 @@ impl Database {
                 ON n.file_path = o.file_path
                 WHERE n.hash != o.hash
             "#,
-            new, old
+            new.0, old.0
         );
         let mut statement = self.connection.prepare(&sql)?;
         let iterator = statement.query_map(
@@ -179,15 +184,15 @@ impl Database {
         )?;
         for item in iterator {
             let item = item?;
-            let difference = difference::Type::Hash(new, item.0, item.1, old, item.2, item.3);
+            let difference = difference::Type::Hash(new.0, item.0, item.1, old.0, item.2, item.3);
             differences.push(difference);
         }
         Ok(())
     }
     fn select_removed_paths(
         &self,
-        new: i64,
-        old: i64,
+        new: &Timestamp,
+        old: &Timestamp,
         differences: &mut Vec<difference::Type>,
     ) -> Result<(), Error> {
         let sql = format!(
@@ -198,7 +203,7 @@ impl Database {
                 ON n.file_path = o.file_path
                 WHERE o.file_path IS NULL
             "#,
-            old, new,
+            old.0, new.0,
         );
         let mut statement = self.connection.prepare(&sql)?;
         let iterator = statement.query_map(
@@ -214,8 +219,8 @@ impl Database {
     }
     fn select_added_paths(
         &self,
-        new: i64,
-        old: i64,
+        new: &Timestamp,
+        old: &Timestamp,
         differences: &mut Vec<difference::Type>,
     ) -> Result<(), Error> {
         let sql = format!(
@@ -226,7 +231,7 @@ impl Database {
                 ON n.file_path = o.file_path
                 WHERE o.file_path IS NULL
             "#,
-            new, old
+            new.0, old.0
         );
         let mut statement = self.connection.prepare(&sql)?;
         let iterator = statement.query_map(

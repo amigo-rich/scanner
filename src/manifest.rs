@@ -1,5 +1,10 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Debug)]
+pub struct Id(pub i64);
+#[derive(Debug)]
+pub struct Timestamp(pub i64);
+
 pub struct Manifest {
     id: i64,
     timestamp: i64,
@@ -7,19 +12,19 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn from_database(id: i64, timestamp: i64, file_path: String) -> Self {
+    pub fn from_database(id: Id, timestamp: Timestamp, file_path: String) -> Self {
         let file_path = Path::new(&file_path).to_path_buf();
         Manifest {
-            id,
-            timestamp,
+            id: id.0,
+            timestamp: timestamp.0,
             file_path,
         }
     }
-    pub fn id(&self) -> i64 {
-        self.id
+    pub fn id(&self) -> Id {
+        Id(self.id)
     }
-    pub fn timestamp(&self) -> i64 {
-        self.timestamp
+    pub fn timestamp(&self) -> Timestamp {
+        Timestamp(self.timestamp)
     }
     pub fn file_path(&self) -> &Path {
         &self.file_path

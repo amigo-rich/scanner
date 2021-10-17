@@ -1,5 +1,5 @@
 use clap::Clap;
-use scanner::{error::Error, operation::Operation, run};
+use scanner::{error::Error, manifest::Id, operation::Operation, run};
 use std::path::Path;
 
 #[derive(Clap)]
@@ -60,14 +60,16 @@ fn main() -> Result<(), Error> {
     let opts = Opts::parse();
     let operation = match opts.subcmd {
         SubCommand::Compare(compare_matches) => {
-            Operation::Compare(compare_matches.first, compare_matches.second)
+            Operation::Compare(Id(compare_matches.first), Id(compare_matches.second))
         }
         SubCommand::Create(create_matches) => {
             Operation::Index(Path::new(&create_matches.path).to_path_buf())
         }
-        SubCommand::Delete(delete_matches) => Operation::DeleteManifest(delete_matches.manifest),
+        SubCommand::Delete(delete_matches) => {
+            Operation::DeleteManifest(Id(delete_matches.manifest))
+        }
         SubCommand::List => Operation::List,
-        SubCommand::Scan(scan_matches) => Operation::Scan(scan_matches.manifest),
+        SubCommand::Scan(scan_matches) => Operation::Scan(Id(scan_matches.manifest)),
     };
     run(operation)
 }
