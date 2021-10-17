@@ -5,5 +5,5 @@ pub enum Operation {
     DeleteManifest(i64),
     Index(PathBuf),
     List,
-    Scan(i64, PathBuf),
+    Scan(i64),
 }
