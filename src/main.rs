@@ -1,70 +1,58 @@
-use clap::{App, Arg};
+use clap::Clap;
 use scanner::{error::Error, operation::Operation, run};
 use std::path::Path;
 
+#[derive(Clap)]
+struct Opts {
+    #[clap(subcommand)]
+    subcmd: SubCommand,
+}
+
+#[derive(Clap)]
+enum SubCommand {
+    Create(Create),
+    Delete(Delete),
+    List,
+    Scan(Scan),
+}
+
+/// Scan a path, creating a new manifest
+#[derive(Clap)]
+struct Create {
+    /// The path to start the scan
+    #[clap(short, long)]
+    path: String,
+}
+
+/// Delete an existing manifest
+#[derive(Clap)]
+struct Delete {
+    /// Delete the manifest with a particular id
+    #[clap(short, long)]
+    manifest: i64,
+}
+
+/// List existing manifests
+#[derive(Clap)]
+struct List {}
+
+/// Re-run a scan, create a new manifest and note any differences
+#[derive(Clap)]
+struct Scan {
+    /// Rerun a scan, create a new manifest and compare the results
+    #[clap(short, long)]
+    manifest: i64,
+}
+
 fn main() -> Result<(), Error> {
-    let matches = App::new("Scanner")
-        .version("0.1")
-        .author("Richard Bradshaw")
-        .about("Tripwire like thing")
-        .subcommand(
-            App::new("index").arg(
-                Arg::new("path")
-                    .long("path")
-                    .required(true)
-                    .takes_value(true)
-                    .short('p'),
-            ),
-        )
-        .subcommand(App::new("list"))
-        .subcommand(
-            App::new("manifest").arg(
-                Arg::new("delete")
-                    .long("delete")
-                    .takes_value(true)
-                    .short('d'),
-            ),
-        )
-        .subcommand(
-            App::new("scan")
-                .arg(
-                    Arg::new("manifest")
-                        .long("manifest")
-                        .required(true)
-                        .takes_value(true)
-                        .short('m'),
-                )
-                .arg(
-                    Arg::new("path")
-                        .long("path")
-                        .required(true)
-                        .takes_value(true)
-                        .short('p'),
-                ),
-        )
-        .get_matches();
-
-    let operation = match matches.subcommand() {
-        Some(("index", index_matches)) => {
-            let path = Path::new(index_matches.value_of("path").unwrap());
-            Operation::Index(path.to_path_buf())
+    let opts = Opts::parse();
+    let operation = match opts.subcmd {
+        SubCommand::Create(create_matches) => {
+            Operation::Index(Path::new(&create_matches.path).to_path_buf())
         }
-        Some(("list", _)) => Operation::List,
-        Some(("manifest", manifest_matches)) => {
-            let manifest_id = manifest_matches
-                .value_of("delete")
-                .unwrap()
-                .parse()
-                .unwrap();
-            Operation::DeleteManifest(manifest_id)
-        }
-        Some(("scan", scan_matches)) => {
-            let manifest: i64 = scan_matches.value_of("manifest").unwrap().parse().unwrap();
-            let path = Path::new(scan_matches.value_of("path").unwrap());
-            Operation::Scan(manifest, path.to_path_buf())
-        }
-        _ => unreachable!(),
+        SubCommand::Delete(delete_matches) => Operation::DeleteManifest(delete_matches.manifest),
+        SubCommand::List => Operation::List,
+        SubCommand::Scan(scan_matches) => Operation::Scan(scan_matches.manifest),
     };
-
     run(operation)
 }

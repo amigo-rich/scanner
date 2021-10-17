@@ -55,9 +55,9 @@ pub fn run(operation: Operation) -> Result<(), Error> {
                 );
             }
         }
-        Operation::Scan(manifest, path) => {
-            let manifest = database.select_manifest(manifest)?;
-            let scanner = Scanner::new(path)?;
+        Operation::Scan(manifest_id) => {
+            let manifest = database.select_manifest(manifest_id)?;
+            let scanner = Scanner::new(Path::new(&manifest.record().1).to_path_buf())?;
             let results = scanner.index()?;
             let new_manifest = Local::now().timestamp_millis();
             database.create_manifest_table(new_manifest, scanner.root())?;
