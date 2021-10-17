@@ -1,27 +1,8 @@
 use crate::difference;
 use crate::error::Error;
+use crate::manifest::Manifest;
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
-
-pub struct Record<T> {
-    id: i64,
-    record: T,
-}
-
-impl<T> Record<T> {
-    pub fn new(id: i64, record: T) -> Self {
-        Record::<T> { id, record }
-    }
-    pub fn id(&self) -> i64 {
-        self.id
-    }
-    pub fn record(&self) -> &T {
-        &self.record
-    }
-    pub fn move_record(self) -> T {
-        self.record
-    }
-}
 
 pub struct Database {
     connection: Connection,
@@ -50,7 +31,7 @@ impl Database {
         let connection = Connection::open(p)?;
         Ok(Database { connection })
     }
-    pub fn select_manifests(&self) -> Result<Vec<Record<(i64, String)>>, Error> {
+    pub fn select_manifests(&self) -> Result<Vec<Manifest>, Error> {
         let sql = r#"
             SELECT id, timestamp, directory_path
             FROM manifest
@@ -58,7 +39,11 @@ impl Database {
         "#;
         let mut statement = self.connection.prepare(sql)?;
         let iterator = statement.query_map(params![], |row| {
-            Ok(Record::new(row.get(0)?, (row.get(1)?, row.get(2)?)))
+            Ok(Manifest::from_database(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+            ))
         })?;
         let mut results = Vec::new();
         for result in iterator {
@@ -66,14 +51,18 @@ impl Database {
         }
         Ok(results)
     }
-    pub fn select_manifest(&self, id: i64) -> Result<Record<(i64, String)>, Error> {
+    pub fn select_manifest(&self, id: i64) -> Result<Manifest, Error> {
         let sql = r#"
             SELECT id, timestamp, directory_path
             FROM manifest
             WHERE id = ?1
         "#;
         let record = self.connection.query_row(sql, params![id], |row| {
-            Ok(Record::new(row.get(0)?, (row.get(1)?, row.get(2)?)))
+            Ok(Manifest::from_database(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+            ))
         })?;
         Ok(record)
     }
@@ -114,7 +103,7 @@ impl Database {
             r#"
                 DROP TABLE '{}'
             "#,
-            manifest_record.record.0,
+            manifest_record.timestamp(),
         );
         let transaction = self.connection.transaction()?;
         transaction.execute(sql, params![manifest_record.id()])?;

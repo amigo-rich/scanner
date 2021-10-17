@@ -4,6 +4,7 @@ use database::Database;
 mod difference;
 pub mod error;
 use error::Error;
+mod manifest;
 pub mod operation;
 use operation::Operation;
 mod scanner;
@@ -15,9 +16,10 @@ use std::path::Path;
 const DB_PATH: &str = "testing.sqlite";
 const SCHEMA_DIR: &str = "schema";
 
-fn display_differences<I>(iterator: I)
+fn display_result<I, T>(iterator: I)
 where
-    I: Iterator<Item = difference::Type>,
+    I: Iterator<Item = T>,
+    T: std::fmt::Display,
 {
     for item in iterator {
         println!("{}", item);
@@ -45,10 +47,10 @@ pub fn run(operation: Operation) -> Result<(), Error> {
         Operation::Compare(first, second) => {
             let new_record = database.select_manifest(first)?;
             let old_record = database.select_manifest(second)?;
-            if let Some(differences) = database
-                .select_manifest_differences(new_record.record().0, old_record.record().0)?
+            if let Some(differences) =
+                database.select_manifest_differences(new_record.id(), old_record.id())?
             {
-                display_differences(differences.into_iter());
+                display_result(differences.into_iter());
             } else {
                 println!("Sets match.");
             }
@@ -70,22 +72,22 @@ pub fn run(operation: Operation) -> Result<(), Error> {
                 println!(
                     "{}\t{}\t{}",
                     manifest.id(),
-                    manifest.record().0,
-                    manifest.record().1
+                    manifest.timestamp(),
+                    manifest.file_path().display(),
                 );
             }
         }
         Operation::Scan(manifest_id) => {
             let manifest = database.select_manifest(manifest_id)?;
-            let scanner = Scanner::new(Path::new(&manifest.record().1).to_path_buf())?;
+            let scanner = Scanner::new(manifest.file_path().to_path_buf())?;
             let results = scanner.index()?;
             let new_manifest = Local::now().timestamp_millis();
             database.create_manifest_table(new_manifest, scanner.root())?;
             database.insert_file_paths_and_hashes(new_manifest, results.into_iter())?;
             if let Some(differences) =
-                database.select_manifest_differences(new_manifest, manifest.move_record().0)?
+                database.select_manifest_differences(new_manifest, manifest.timestamp())?
             {
-                display_differences(differences.into_iter());
+                display_result(differences.into_iter());
             } else {
                 println!("Sets match.");
             }
