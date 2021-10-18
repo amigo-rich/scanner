@@ -1,14 +1,14 @@
-use clap::Clap;
+use clap::Parser;
 use scanner::{error::Error, manifest::Id, operation::Operation, run};
 use std::path::Path;
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum SubCommand {
     Compare(Compare),
     Create(Create),
@@ -18,7 +18,7 @@ enum SubCommand {
 }
 
 /// Compare two manifests and note any differences
-#[derive(Clap)]
+#[derive(Parser)]
 struct Compare {
     /// The first manifest id
     #[clap(short, long)]
@@ -29,7 +29,7 @@ struct Compare {
 }
 
 /// Scan a path, creating a new manifest
-#[derive(Clap)]
+#[derive(Parser)]
 struct Create {
     /// The path to start the scan
     #[clap(short, long)]
@@ -37,7 +37,7 @@ struct Create {
 }
 
 /// Delete an existing manifest
-#[derive(Clap)]
+#[derive(Parser)]
 struct Delete {
     /// Delete the manifest with a particular id
     #[clap(short, long)]
@@ -45,11 +45,11 @@ struct Delete {
 }
 
 /// List existing manifests
-#[derive(Clap)]
+#[derive(Parser)]
 struct List {}
 
 /// Re-run a scan, create a new manifest and note any differences
-#[derive(Clap)]
+#[derive(Parser)]
 struct Scan {
     /// Rerun a scan, create a new manifest and compare the results
     #[clap(short, long)]
