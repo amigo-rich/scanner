@@ -26,6 +26,7 @@ impl std::fmt::Display for SchemaFileProblem {
 
 #[derive(Debug)]
 pub enum Error {
+    EmptyString,
     InvalidSchemaDirectory(std::path::PathBuf),
     InvalidSchemaFile(SchemaFileProblem),
     IO(std::io::Error),
@@ -49,6 +50,7 @@ impl From<rusqlite::Error> for Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let error_description = match self {
+            Error::EmptyString => String::from("An empty string was provided"),
             Error::InvalidSchemaDirectory(path) => {
                 format!("The provided pathbuf: {:?} is invalid", path)
             }

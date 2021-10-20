@@ -18,6 +18,9 @@ pub struct FileMetadata {
 
 impl FileMetadata {
     pub fn from_pathbuf(path: &Path) -> Result<Self, Error> {
+        if !path.is_file() {
+            return Err(Error::NoFile(path.to_path_buf()));
+        }
         let file = fs::File::open(&path)?;
         let hash = FileMetadata::calculate_hash(&file)?;
         let (created, modified, accessed) = FileMetadata::times(&file)?;
@@ -36,6 +39,12 @@ impl FileMetadata {
         modified: time::OffsetDateTime,
         accessed: time::OffsetDateTime,
     ) -> Result<Self, Error> {
+        if path.is_empty() {
+            return Err(Error::EmptyString);
+        }
+        if hash.is_empty() {
+            return Err(Error::EmptyString);
+        }
         Ok(FileMetadata {
             path: Path::new(&path).to_path_buf(),
             hash,
