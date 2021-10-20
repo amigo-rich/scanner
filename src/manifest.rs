@@ -1,9 +1,17 @@
 use std::path::{Path, PathBuf};
+use time::OffsetDateTime;
 
 #[derive(Debug)]
 pub struct Id(pub i64);
 #[derive(Debug)]
 pub struct Timestamp(pub i64);
+
+impl Timestamp {
+    pub fn now() -> Self {
+        let unix_timestamp = OffsetDateTime::now_utc().unix_timestamp();
+        Timestamp { 0: unix_timestamp }
+    }
+}
 
 pub struct Manifest {
     id: i64,

@@ -7,6 +7,6 @@ edition = "2018"
 
 [dependencies]
 blake3 = "1"
-chrono = "0.4.19"
 clap = "3.0.0-beta.5"
-rusqlite = { version = "0.26", features = [ "chrono" ] }
+time = "0.3"
+rusqlite = { version = "0.26", features = [ "time" ] }

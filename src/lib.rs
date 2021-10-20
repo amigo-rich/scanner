@@ -1,4 +1,3 @@
-use chrono::Local;
 mod database;
 use database::Database;
 mod difference;
@@ -62,7 +61,7 @@ pub fn run(operation: Operation) -> Result<(), Error> {
         Operation::Index(path) => {
             let scanner = Scanner::new(path)?;
             let results = scanner.index()?;
-            let manifest = Timestamp(Local::now().timestamp_millis());
+            let manifest = Timestamp::now();
             database.create_manifest_table(&manifest, scanner.root())?;
             database.insert_file_paths_and_hashes(&manifest, results.into_iter())?;
         }
@@ -75,7 +74,7 @@ pub fn run(operation: Operation) -> Result<(), Error> {
             let manifest = database.select_manifest(&manifest_id)?;
             let scanner = Scanner::new(manifest.file_path().to_path_buf())?;
             let results = scanner.index()?;
-            let new_manifest = Timestamp(Local::now().timestamp_millis());
+            let new_manifest = Timestamp::now();
             database.create_manifest_table(&new_manifest, scanner.root())?;
             database.insert_file_paths_and_hashes(&new_manifest, results.into_iter())?;
             if let Some(differences) =
