@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use crate::error::Error;
