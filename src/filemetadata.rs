@@ -17,12 +17,12 @@ pub struct FileMetadata {
 }
 
 impl FileMetadata {
-    pub fn from_pathbuf(path: PathBuf) -> Result<Self, Error> {
+    pub fn from_pathbuf(path: &Path) -> Result<Self, Error> {
         let file = fs::File::open(&path)?;
         let hash = FileMetadata::calculate_hash(&file)?;
         let (created, modified, accessed) = FileMetadata::times(&file)?;
         Ok(FileMetadata {
-            path,
+            path: path.to_path_buf(),
             hash,
             created,
             modified,

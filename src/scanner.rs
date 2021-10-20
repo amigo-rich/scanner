@@ -37,8 +37,7 @@ impl Scanner {
         let hash_handle = thread::spawn(move || -> Result<(), Error> {
             for message in file_receive {
                 if let Message::Path(path) = message {
-                    // XXX clone
-                    if let Ok(file) = FileMetadata::from_pathbuf(path.clone()) {
+                    if let Ok(file) = FileMetadata::from_pathbuf(&path) {
                         main_send.send(Message::File(file)).unwrap();
                     } else {
                         main_send.send(Message::Failure(path)).unwrap();
