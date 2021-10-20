@@ -3,6 +3,7 @@ use database::Database;
 mod difference;
 pub mod error;
 use error::Error;
+mod filemetadata;
 pub mod manifest;
 use manifest::Timestamp;
 pub mod operation;

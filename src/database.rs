@@ -1,8 +1,10 @@
+use std::path::Path;
+
 use crate::difference;
 use crate::error::Error;
+use crate::filemetadata::FileMetadata;
 use crate::manifest::{Id, Manifest, Timestamp};
 use rusqlite::{params, Connection};
-use std::path::{Path, PathBuf};
 
 pub struct Database {
     connection: Connection,
@@ -81,6 +83,9 @@ impl Database {
                     id INTEGER PRIMARY KEY,
                     file_path TEXT NOT NULL,
                     hash TEXT NOT NULL,
+                    created TEXT,
+                    modified TEXT,
+                    accessed TEXT,
                     manifest_id INTEGER NOT NULL,
                     FOREIGN KEY (manifest_id) REFERENCES manifest (id)
                 )
@@ -118,7 +123,7 @@ impl Database {
         iterator: I,
     ) -> Result<(), Error>
     where
-        I: Iterator<Item = (PathBuf, String)>,
+        I: Iterator<Item = FileMetadata>,
     {
         let sql = r#"
             SELECT id
@@ -128,18 +133,27 @@ impl Database {
         let transaction = self.connection.transaction()?;
         let insert_sql = format!(
             r#"
-                INSERT INTO '{}' (file_path, hash, manifest_id)
-                VALUES (?1, ?2, ?3)
+                INSERT INTO '{}' (file_path, hash, created, modified, accessed, manifest_id)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             "#,
             timestamp.0,
         );
         let manifest_id =
             transaction.query_row(sql, params![timestamp.0], |row| Ok(Id(row.get(0)?)))?;
-        for pair in iterator {
+        for file in iterator {
             // Hack for now...probably should be done when scanning or use a u8 vec for path?
-            let value = pair.0.as_os_str();
-            let converted = value.to_str().unwrap_or("default");
-            transaction.execute(&insert_sql, params![converted, pair.1, manifest_id.0])?;
+            let converted = file.path().to_str().unwrap_or("default");
+            transaction.execute(
+                &insert_sql,
+                params![
+                    converted,
+                    file.hash(),
+                    file.created(),
+                    file.modified(),
+                    file.accessed(),
+                    manifest_id.0
+                ],
+            )?;
         }
         transaction.commit()?;
         Ok(())
@@ -167,7 +181,17 @@ impl Database {
     ) -> Result<(), Error> {
         let sql = format!(
             r#"
-                SELECT n.file_path, n.hash, o.file_path, o.hash
+                SELECT
+                    n.file_path,
+                    n.hash,
+                    n.created,
+                    n.modified,
+                    n.accessed,
+                    o.file_path,
+                    o.hash,
+                    o.created,
+                    o.modified,
+                    o.accessed
                 FROM '{}' AS n
                 INNER JOIN '{}' AS o
                 ON n.file_path = o.file_path
@@ -178,13 +202,29 @@ impl Database {
         let mut statement = self.connection.prepare(&sql)?;
         let iterator = statement.query_map(
             params![],
-            |row| -> Result<(String, String, String, String), rusqlite::Error> {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            |row| -> Result<(i64, FileMetadata, i64, FileMetadata), rusqlite::Error> {
+                let a = FileMetadata::from_database(
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                )
+                .unwrap();
+                let b = FileMetadata::from_database(
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                    row.get(9)?,
+                )
+                .unwrap();
+                Ok((old.0, a, new.0, b))
             },
         )?;
         for item in iterator {
             let item = item?;
-            let difference = difference::Type::Hash(new.0, item.0, item.1, old.0, item.2, item.3);
+            let difference = difference::Type::Hash(item.0, item.1, item.2, item.3);
             differences.push(difference);
         }
         Ok(())
@@ -197,7 +237,12 @@ impl Database {
     ) -> Result<(), Error> {
         let sql = format!(
             r#"
-                SELECT n.file_path, n.hash
+                SELECT
+                    n.file_path,
+                    n.hash,
+                    n.created,
+                    n.modified,
+                    n.accessed
                 FROM '{}' AS n
                 LEFT JOIN '{}' AS o
                 ON n.file_path = o.file_path
@@ -206,14 +251,20 @@ impl Database {
             old.0, new.0,
         );
         let mut statement = self.connection.prepare(&sql)?;
-        let iterator = statement.query_map(
-            params![],
-            |row| -> Result<(String, String), rusqlite::Error> { Ok((row.get(0)?, row.get(1)?)) },
-        )?;
+        let iterator =
+            statement.query_map(params![], |row| -> Result<FileMetadata, rusqlite::Error> {
+                Ok(FileMetadata::from_database(
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                )
+                .unwrap())
+            })?;
         for item in iterator {
             let item = item?;
-            let difference = difference::Type::Delete(item.0, item.1);
-            differences.push(difference);
+            differences.push(difference::Type::Delete(item));
         }
         Ok(())
     }
@@ -225,7 +276,12 @@ impl Database {
     ) -> Result<(), Error> {
         let sql = format!(
             r#"
-                SELECT n.file_path, n.hash, o.file_path, o.hash
+                SELECT
+                    n.file_path,
+                    n.hash,
+                    n.created,
+                    n.modified,
+                    n.accessed
                 FROM '{}' AS n
                 LEFT JOIN '{}' AS o
                 ON n.file_path = o.file_path
@@ -234,14 +290,21 @@ impl Database {
             new.0, old.0
         );
         let mut statement = self.connection.prepare(&sql)?;
-        let iterator = statement.query_map(
-            params![],
-            |row| -> Result<(String, String), rusqlite::Error> { Ok((row.get(0)?, row.get(1)?)) },
-        )?;
+        let iterator =
+            statement.query_map(params![], |row| -> Result<FileMetadata, rusqlite::Error> {
+                let new = FileMetadata::from_database(
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                )
+                .unwrap();
+                Ok(new)
+            })?;
         for item in iterator {
             let item = item?;
-            let difference = difference::Type::Add(item.0, item.1);
-            differences.push(difference);
+            differences.push(difference::Type::Add(item));
         }
         Ok(())
     }
