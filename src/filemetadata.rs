@@ -45,18 +45,11 @@ impl FileMetadata {
         })
     }
     fn calculate_hash(file: &fs::File) -> Result<String, Error> {
+        // Thanks to erer1243 on #beginners discord for the shorter code!
         let mut reader = BufReader::with_capacity(READ_MAX, file);
 
         let mut hasher = blake3::Hasher::new();
-        loop {
-            let buffer = reader.fill_buf()?;
-            if buffer.is_empty() {
-                break;
-            }
-            hasher.update(buffer);
-            let len = buffer.len();
-            reader.consume(len);
-        }
+        std::io::copy(&mut reader, &mut hasher)?;
         Ok(hasher.finalize().to_string())
     }
     fn times(
