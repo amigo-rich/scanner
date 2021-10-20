@@ -78,6 +78,7 @@ impl From<std::io::Error> for Error {
         Error::IO(e)
     }
 }
+
 impl From<std::num::ParseIntError> for Error {
     fn from(e: std::num::ParseIntError) -> Self {
         Error::ParseInt(e)
